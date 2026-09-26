@@ -3,6 +3,7 @@ name: Windows native MX Keys handoff
 on:
   push:
     branches: [cosmic-keyboard-handoff]
+    tags: [cosmic-native-logi-keyboard-working-*]
   workflow_dispatch:
 
 permissions:

@@ -1,0 +1,16 @@
+# Fedora is used because Pop!_OS 24.04's system Qt/libei are older than this
+# Deskflow checkout requires. This is a build AND runtime test image.
+FROM fedora:43
+
+RUN dnf -y -q install \
+      cmake ninja-build gcc-c++ pkgconf-pkg-config \
+      openssl-devel glib2-devel libxkbcommon-devel \
+      qt6-qtbase-devel qt6-qttools-devel \
+      libei-devel libportal-devel systemd-devel wl-clipboard \
+    && dnf clean all
+
+# Keep Git in a separate layer so the already-tested Fedora dependency layer
+# remains cached when only version-detection tooling changes.
+RUN dnf -y -q install git && dnf clean all
+
+WORKDIR /work
