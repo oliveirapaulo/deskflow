@@ -1,0 +1,53 @@
+name: Windows native MX Keys handoff
+
+on:
+  push:
+    branches: [cosmic-keyboard-handoff]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portable-x64:
+    runs-on: windows-2022
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64
+
+      - name: Install Deskflow dependencies
+        id: deps
+        uses: ./.github/actions/install-dependencies
+        with:
+          qt-version: 6.10.1
+          vcpkg-triplet: x64-windows-release
+
+      - name: Configure native handoff build
+        run: >-
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_TESTS=OFF
+          -DSKIP_BUILD_TESTS=ON
+          -DDESKFLOW_NATIVE_MX_KEYS_HANDOFF=ON
+          ${{ steps.deps.outputs.vcpkg-cmake-config }}
+
+      - name: Build portable package
+        run: cmake --build build --config Release -j4 --target package
+
+      - name: Smoke-test portable package
+        uses: ./.github/actions/test-package
+
+      - name: Upload portable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: deskflow-native-mx-keys-windows-x64
+          path: build/deskflow-*-portable.7z
+          if-no-files-found: error
+          retention-days: 3

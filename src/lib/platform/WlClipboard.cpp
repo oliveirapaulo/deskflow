@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #include <QDateTime>
+#include <QCryptographicHash>
 #include <QProcess>
 #include <QStandardPaths>
 
@@ -337,23 +338,68 @@ QStringList WlClipboard::getAvailableMimeTypes() const
   return QString::fromLocal8Bit(cmd.readAll()).split(newLine);
 }
 
+bool WlClipboard::getTextFingerprint(const QStringList &types, QByteArray &fingerprint) const
+{
+  QString mimeType;
+  if (types.contains(s_mimeTypeText)) {
+    mimeType = s_mimeTypeText;
+  } else if (types.contains(QStringLiteral("text/plain"))) {
+    mimeType = QStringLiteral("text/plain");
+  } else {
+    fingerprint.clear();
+    return true;
+  }
+
+  QProcess cmd;
+  cmd.setProgram(s_pasteApp);
+  QStringList args = {s_noNewLine, s_readType.arg(mimeType)};
+  if (!m_useClipboard)
+    args.append(s_isPrimary);
+  cmd.setArguments(args);
+  cmd.start();
+  if (!cmd.waitForStarted(1000)) {
+    return false;
+  }
+  if (!cmd.waitForFinished(2000)) {
+    cmd.kill();
+    cmd.waitForFinished(500);
+    return false;
+  }
+  if (cmd.exitStatus() != QProcess::NormalExit || cmd.exitCode() != 0) {
+    return false;
+  }
+
+  fingerprint = QCryptographicHash::hash(cmd.readAllStandardOutput(), QCryptographicHash::Sha256);
+  return true;
+}
+
 void WlClipboard::monitorClipboard()
 {
   QStringList lastTypes;
+  QByteArray lastTextFingerprint;
   int consecutiveErrors = 0;
 
   while (!m_stopMonitoring) {
     std::this_thread::sleep_for(std::chrono::milliseconds(kMonitorIntervalMs));
     try {
-      // Check if clipboard content has changed by comparing available types
+      // MIME types often remain identical across successive text copies.
       const auto currentTypes = getAvailableMimeTypes();
+      QByteArray currentTextFingerprint;
+      if (!getTextFingerprint(currentTypes, currentTextFingerprint)) {
+        if (++consecutiveErrors >= kMaxConsecutiveErrors) {
+          LOG_ERR("too many consecutive errors reading Wayland clipboard text, stopping");
+          break;
+        }
+        continue;
+      }
 
       // Reset error counter on successful operation
       consecutiveErrors = 0;
 
-      if (currentTypes != lastTypes) {
+      if (currentTypes != lastTypes || currentTextFingerprint != lastTextFingerprint) {
         m_hasChanged = true;
         lastTypes = currentTypes;
+        lastTextFingerprint = currentTextFingerprint;
 
         // Clear cache when clipboard changes
         std::scoped_lock<std::mutex> lock(m_cacheMutex);

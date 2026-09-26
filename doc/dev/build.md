@@ -33,9 +33,35 @@ Deskflow supports the following CMake options:
 | VCPKG_QT                 | Build Qt w/ vcpkg (Windows only)        | OFF                | |
 | CLEAN_TRS                | Remove obsolete strings from tr files   | OFF                | |
 | APPLE_CODESIGN_DEV       | Apple codesign cert ID for development  | Not set            | | 
+| DESKFLOW_NATIVE_MX_KEYS_HANDOFF | Compile the optional native MX Keys handoff (Linux/Windows) | OFF | HIDAPI source fetched at configure time; Linux libudev development files |
 
 Example cmake configuration:
 `cmake -S. -Bbuild -DCMAKE_INSTALL_PREFIX=<INSTALLPREFIX>`
+
+### Native MX Keys host handoff
+
+Configure with `-DDESKFLOW_NATIVE_MX_KEYS_HANDOFF=ON` to compile the pinned
+HIDAPI library statically into Deskflow. This does not enable switching by
+itself. The feature is intentionally restricted to the tested Logitech
+046d:c52b receiver, HID usage page ff00/usage 0001, and the MX Keys paired as
+receiver device 1. Linux needs permission to access its `/dev/hidraw*` node;
+containerized runs must also expose that device and udev metadata.
+
+The settings are opt-in and use physical Easy-Switch slots (1 through 3):
+
+* On the client, `client/mxKeysHostOnScreenLeave=2` switches the MX Keys to
+  Windows when leaving the Pop client screen.
+* On the server, set `server/onEnterScreen=pop-os` and
+  `server/mxKeysHostOnEnterScreen=1` to switch the MX Keys to Pop only when the
+  pointer enters that named screen.
+
+Zero or an unset slot disables native handoff. If a native slot is set, it
+takes precedence over the corresponding legacy transition script setting;
+Deskflow never invokes both. The receiver write runs off the input event
+thread, and results are logged by `deskflow-core`. A successful HID write does
+not prove that the keyboard actually changed host, so verify both directions
+manually before relying on the automatic transition. The mouse is never sent
+a host-switch command.
 
 ### Windows Configuration
 

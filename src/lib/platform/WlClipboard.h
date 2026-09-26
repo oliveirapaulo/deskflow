@@ -17,7 +17,9 @@
 #include <thread>
 
 #include <QObject>
+#include <QByteArray>
 #include <QString>
+#include <QStringList>
 
 class QProcess;
 //! Wayland clipboard implementation using wl-copy/wl-paste
@@ -76,6 +78,9 @@ private:
 
   //! Get available MIME types from clipboard
   QStringList getAvailableMimeTypes() const;
+
+  //! Hash text so successive copies with the same MIME types are detected
+  bool getTextFingerprint(const QStringList &types, QByteArray &fingerprint) const;
 
   //! Monitor clipboard changes in background thread
   void monitorClipboard();

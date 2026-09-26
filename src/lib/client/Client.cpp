@@ -187,16 +187,32 @@ void Client::getCursorPos(int32_t &x, int32_t &y) const
 
 void Client::enter(int32_t xAbs, int32_t yAbs, uint32_t, KeyModifierMask mask, bool)
 {
+  const bool wasActive = m_active;
   m_active = true;
   m_screen->mouseMove(xAbs, yAbs);
   m_screen->enter(mask);
+  if (!wasActive) {
+    m_events->addEvent(
+        Event(EventTypes::ClientScreenEntered, getEventTarget(), nullptr, Event::EventFlags::DeliverImmediately)
+    );
+  }
 }
 
 bool Client::leave()
 {
+  if (!m_active) {
+    return true;
+  }
+  if (!m_screen->leave()) {
+    return false;
+  }
   m_active = false;
 
-  m_screen->leave();
+  // Deliver before returning to the protocol handler, while a keyboard that
+  // is physically paired with this client can still run its host-switch hook.
+  m_events->addEvent(
+      Event(EventTypes::ClientScreenLeft, getEventTarget(), nullptr, Event::EventFlags::DeliverImmediately)
+  );
 
   if (m_enableClipboard) {
     // send clipboards that we own and that have changed
@@ -432,6 +448,7 @@ void Client::cleanup()
   cleanupScreen();
   cleanupConnecting();
   cleanupConnection();
+  m_active = false;
 }
 
 void Client::cleanupConnecting()

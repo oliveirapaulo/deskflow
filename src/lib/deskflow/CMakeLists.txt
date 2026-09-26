@@ -77,6 +77,10 @@ add_library(${lib_name} STATIC ${PLATFORM_CODE}
   ServerApp.h
   StreamChunker.cpp
   StreamChunker.h
+  TransitionHook.cpp
+  TransitionHook.h
+  MxKeysHandoff.cpp
+  MxKeysHandoff.h
   languages/LanguageManager.cpp
   languages/LanguageManager.h
   ipc/DaemonIpcServer.cpp
@@ -84,6 +88,28 @@ add_library(${lib_name} STATIC ${PLATFORM_CODE}
 )
 
 target_link_libraries(${lib_name} PUBLIC common Qt6::Core Qt6::Network)
+
+if(DESKFLOW_NATIVE_MX_KEYS_HANDOFF)
+  if(APPLE)
+    message(FATAL_ERROR "Native MX Keys handoff is currently supported on Linux and Windows only")
+  endif()
+  include(FetchContent)
+  # A pinned HIDAPI source is compiled into Deskflow; no hidapitester program or
+  # HIDAPI DLL is needed at runtime. The Linux hidraw backend needs libudev.
+  set(BUILD_SHARED_LIBS OFF)
+  set(HIDAPI_INSTALL_TARGETS OFF)
+  set(HIDAPI_WITH_TESTS OFF)
+  if(UNIX)
+    set(HIDAPI_WITH_LIBUSB OFF)
+  endif()
+  FetchContent_Declare(hidapi
+    URL https://codeload.github.com/libusb/hidapi/tar.gz/d6b2a974608dec3b76fb1e36c189f22b9cf3650c
+    URL_HASH SHA256=a93a9bfb599831b82c6cef50f42359e0f5f31abfc8f6954862c328a464cbc4d0
+  )
+  FetchContent_MakeAvailable(hidapi)
+  target_link_libraries(${lib_name} PRIVATE hidapi::hidapi)
+  target_compile_definitions(${lib_name} PRIVATE DESKFLOW_NATIVE_MX_KEYS_HANDOFF=1)
+endif()
 
 if(UNIX)
   target_link_libraries(

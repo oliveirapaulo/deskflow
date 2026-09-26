@@ -41,6 +41,13 @@ enum class EventTypes : uint32_t
   */
   ClientDisconnected,
 
+  /// A connected client received a real enter-screen command from the server.
+  ClientScreenEntered,
+
+  /// A connected client received a real leave-screen command from the server.
+  /// Disconnect and shutdown cleanup do not emit this event.
+  ClientScreenLeft,
+
   /// A stream sends this event when \c read() will return with data.
   StreamInputReady,
 

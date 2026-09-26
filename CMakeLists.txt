@@ -159,6 +159,10 @@ elseif (APPLE)
   option(BUILD_OSX_BUNDLE "Build mac os bundle" ON)
 endif()
 
+# This machine-specific feature is opt-in so ordinary Deskflow builds do not
+# require HID access or acquire a new dependency.
+option(DESKFLOW_NATIVE_MX_KEYS_HANDOFF "Build native MX Keys receiver handoff support" OFF)
+
 include(cmake/Libraries.cmake)
 configure_libs()
 

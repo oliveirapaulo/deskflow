@@ -41,6 +41,9 @@ public:
     inline static const auto LanguageSync = QStringLiteral("client/languageSync");
     inline static const auto RemoteHost = QStringLiteral("client/remoteHost");
     inline static const auto XdpRestoreToken = QStringLiteral("client/xdpRestoreToken");
+    inline static const auto OnScreenLeaveCommand = QStringLiteral("client/onScreenLeaveCommand");
+    // 0 disables native handoff; 1-3 selects the MX Keys Easy-Switch host.
+    inline static const auto MxKeysHostOnScreenLeave = QStringLiteral("client/mxKeysHostOnScreenLeave");
   };
   struct Core
   {
@@ -100,6 +103,9 @@ public:
   {
     inline static const auto ExternalConfig = QStringLiteral("server/externalConfig");
     inline static const auto ExternalConfigFile = QStringLiteral("server/externalConfigFile");
+    inline static const auto OnEnterScreen = QStringLiteral("server/onEnterScreen");
+    inline static const auto OnEnterScreenCommand = QStringLiteral("server/onEnterScreenCommand");
+    inline static const auto MxKeysHostOnEnterScreen = QStringLiteral("server/mxKeysHostOnEnterScreen");
   };
 
   // Enums types used in settings
@@ -200,6 +206,8 @@ private:
     , Settings::Client::YScrollScale
     , Settings::Client::XScrollScale
     , Settings::Client::XdpRestoreToken
+    , Settings::Client::OnScreenLeaveCommand
+    , Settings::Client::MxKeysHostOnScreenLeave
     , Settings::Core::CoreMode
     , Settings::Core::Interface
     , Settings::Core::LastVersion
@@ -238,6 +246,9 @@ private:
     , Settings::Security::TlsEnabled
     , Settings::Server::ExternalConfig
     , Settings::Server::ExternalConfigFile
+    , Settings::Server::OnEnterScreen
+    , Settings::Server::OnEnterScreenCommand
+    , Settings::Server::MxKeysHostOnEnterScreen
   };
 
   // When checking the default values this list contains the ones that default to false.

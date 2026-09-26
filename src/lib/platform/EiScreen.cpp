@@ -297,11 +297,23 @@ void EiScreen::fakeMouseMove(int32_t x, int32_t y)
     return;
   }
 
-  if (!m_eiAbs)
-    return;
+  // COSMIC applies focus-follows-cursor to relative pointer motion, but not
+  // to absolute motion. The absolute event in enter() establishes the initial
+  // position; subsequent server coordinates can be sent as relative deltas.
+  if (m_eiPointer) {
+    const auto dx = static_cast<double>(x) - m_cursorX;
+    const auto dy = static_cast<double>(y) - m_cursorY;
+    if (dx != 0 || dy != 0) {
+      ei_device_pointer_motion(m_eiPointer, dx, dy);
+      ei_device_frame(m_eiPointer, ei_now(m_ei));
+    }
+  } else if (m_eiAbs) {
+    ei_device_pointer_motion_absolute(m_eiAbs, x, y);
+    ei_device_frame(m_eiAbs, ei_now(m_ei));
+  }
 
-  ei_device_pointer_motion_absolute(m_eiAbs, x, y);
-  ei_device_frame(m_eiAbs, ei_now(m_ei));
+  m_cursorX = x;
+  m_cursorY = y;
 }
 
 void EiScreen::fakeMouseRelativeMove(int32_t dx, int32_t dy) const
@@ -365,7 +377,8 @@ void EiScreen::enter()
     }
     if (m_eiAbs) {
       ei_device_start_emulating(m_eiAbs, m_sequenceNumber);
-      fakeMouseMove(m_cursorX, m_cursorY);
+      ei_device_pointer_motion_absolute(m_eiAbs, m_cursorX, m_cursorY);
+      ei_device_frame(m_eiAbs, ei_now(m_ei));
     }
   } else {
     LOG_DEBUG("releasing input capture at x=%i y=%i", m_cursorX, m_cursorY);
@@ -417,9 +430,11 @@ void EiScreen::checkClipboards()
   }
 
   if (m_clipboard->hasChanged()) {
-    // Send clipboard change events for all clipboard types
+    // A local Wayland clipboard change means this client grabbed ownership.
+    // The client listens for ClipboardGrabbed and then tells the server.
+    LOG_INFO("Wayland clipboard changed; notifying server");
     for (ClipboardID id = 0; id < kClipboardEnd; ++id) {
-      sendClipboardEvent(EventTypes::ClipboardChanged, id);
+      sendClipboardEvent(EventTypes::ClipboardGrabbed, id);
     }
     m_clipboard->resetChanged();
   }

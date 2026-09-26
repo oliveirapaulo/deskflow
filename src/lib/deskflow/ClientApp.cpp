@@ -17,6 +17,8 @@
 #include "common/Settings.h"
 #include "deskflow/Screen.h"
 #include "deskflow/ScreenException.h"
+#include "deskflow/TransitionHook.h"
+#include "deskflow/MxKeysHandoff.h"
 #include "net/NetworkAddress.h"
 #include "net/SocketException.h"
 #include "net/SocketMultiplexer.h"
@@ -252,6 +254,14 @@ Client *ClientApp::openClient(const std::string &name, const NetworkAddress &add
     getEvents()->addHandler(EventTypes::ClientDisconnected, client->getEventTarget(), [this](const auto &) {
       handleClientDisconnected();
     });
+    getEvents()->addHandler(EventTypes::ClientScreenLeft, client->getEventTarget(), [](const auto &) {
+      const auto nativeHost = Settings::value(Settings::Client::MxKeysHostOnScreenLeave).toInt();
+      if (nativeHost != 0) {
+        queueMxKeysHostSwitch(nativeHost, "client screen leave");
+      } else {
+        startTransitionHook(Settings::value(Settings::Client::OnScreenLeaveCommand).toString(), "client screen leave");
+      }
+    });
 
   } catch (std::bad_alloc &ba) {
     delete client;
@@ -267,10 +277,12 @@ void ClientApp::closeClient(Client *client)
     return;
   }
   using enum EventTypes;
-  getEvents()->removeHandler(ClientConnected, client);
-  getEvents()->removeHandler(ClientConnectionFailed, client);
-  getEvents()->removeHandler(ClientConnectionRefused, client);
-  getEvents()->removeHandler(ClientDisconnected, client);
+  auto *target = client->getEventTarget();
+  getEvents()->removeHandler(ClientConnected, target);
+  getEvents()->removeHandler(ClientConnectionFailed, target);
+  getEvents()->removeHandler(ClientConnectionRefused, target);
+  getEvents()->removeHandler(ClientDisconnected, target);
+  getEvents()->removeHandler(ClientScreenLeft, target);
   delete client;
 }
 

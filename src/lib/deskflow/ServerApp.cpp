@@ -18,6 +18,8 @@
 #include "deskflow/ProtocolTypes.h"
 #include "deskflow/Screen.h"
 #include "deskflow/ScreenException.h"
+#include "deskflow/TransitionHook.h"
+#include "deskflow/MxKeysHandoff.h"
 #include "net/SocketException.h"
 #include "net/SocketMultiplexer.h"
 #include "net/TCPSocketFactory.h"
@@ -162,6 +164,8 @@ void ServerApp::closeServer(Server *server)
   if (server == nullptr) {
     return;
   }
+
+  getEvents()->removeHandler(EventTypes::ServerScreenSwitched, server);
 
   // tell all clients to disconnect
   server->disconnect();
@@ -476,7 +480,9 @@ Server *ServerApp::openServer(ServerConfig &config, PrimaryClient *primaryClient
 {
   auto *server = new Server(config, primaryClient, m_serverScreen, getEvents());
   try {
-    getEvents()->addHandler(EventTypes::ServerScreenSwitched, server, [this](const auto &) { handleScreenSwitched(); });
+    getEvents()->addHandler(EventTypes::ServerScreenSwitched, server, [this](const auto &event) {
+      handleScreenSwitched(event);
+    });
 
   } catch (std::bad_alloc &ba) {
     delete server;
@@ -486,9 +492,24 @@ Server *ServerApp::openServer(ServerConfig &config, PrimaryClient *primaryClient
   return server;
 }
 
-void ServerApp::handleScreenSwitched() const
+void ServerApp::handleScreenSwitched(const Event &event) const
 {
-  // do nothing
+  const auto *info = static_cast<const Server::SwitchToScreenInfo *>(event.getDataObject());
+  if (!info) {
+    return;
+  }
+
+  const auto target = Settings::value(Settings::Server::OnEnterScreen).toString();
+  if (target.isEmpty() || QString::fromStdString(info->m_screen) != target) {
+    return;
+  }
+
+  const auto nativeHost = Settings::value(Settings::Server::MxKeysHostOnEnterScreen).toInt();
+  if (nativeHost != 0) {
+    queueMxKeysHostSwitch(nativeHost, "server screen enter");
+  } else {
+    startTransitionHook(Settings::value(Settings::Server::OnEnterScreenCommand).toString(), "server screen enter");
+  }
 }
 
 std::unique_ptr<ISocketFactory> ServerApp::getSocketFactory() const
