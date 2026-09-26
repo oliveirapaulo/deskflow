@@ -2,6 +2,8 @@
 
 Status: **proposed design; not implemented**. Written 2026-09-26 from the Pop!_OS/Windows handoff discussion. This document is intended to be sufficient context for resuming the project in a new session. It describes the desired next phase, not a claim that the current build already supports it.
 
+Gate-1 update: the installed COSMIC session does not expose the InputCapture portal needed by the preferred physical-edge design. See [the local feasibility report](gate1-cosmic-input-capture-feasibility.md) before implementing client-side capture or choosing a fallback.
+
 ## 1. Purpose and change from the working baseline
 
 Build an opt-in Deskflow mode in which a multi-host Logitech mouse and/or keyboard physically changes its Easy-Switch host when the pointer crosses between Deskflow computers. Deskflow remains the secure connection, layout, routing, clipboard, and handoff coordinator. The active computer's operating system handles its *locally connected* mouse and keyboard natively.
