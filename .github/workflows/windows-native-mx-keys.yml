@@ -34,13 +34,22 @@ jobs:
         run: >-
           cmake -S . -B build -G Ninja
           -DCMAKE_BUILD_TYPE=Release
-          -DBUILD_TESTS=OFF
+          -DBUILD_TESTS=ON
           -DSKIP_BUILD_TESTS=ON
           -DDESKFLOW_NATIVE_MX_KEYS_HANDOFF=ON
           ${{ steps.deps.outputs.vcpkg-cmake-config }}
 
-      - name: Build portable package
-        run: cmake --build build --config Release -j4 --target package
+      - name: Build portable package and focused validation tests
+        run: >-
+          cmake --build build --config Release -j4 --target
+          package PhysicalEdgeProtocolTests PhysicalEdgeRouteTests
+
+      - name: Run focused validation tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: >-
+          ctest --test-dir build/src/unittests --output-on-failure
+          -R "PhysicalEdgeProtocolTests|PhysicalEdgeRouteTests"
 
       - name: Smoke-test portable package
         uses: ./.github/actions/test-package

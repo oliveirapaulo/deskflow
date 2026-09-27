@@ -16,6 +16,8 @@
 #include "deskflow/OptionTypes.h"
 #include "deskflow/PacketStreamFilter.h"
 #include "deskflow/ProtocolTypes.h"
+#include "common/Settings.h"
+#include "server/ClientProxy1_9.h"
 #include "deskflow/Screen.h"
 #include "deskflow/StreamChunker.h"
 #include "net/TCPSocket.h"
@@ -23,6 +25,9 @@
 #include "server/ClientProxy.h"
 #include "server/ClientProxyUnknown.h"
 #include "server/PrimaryClient.h"
+#include "server/PhysicalEdgeRouteMath.h"
+
+#include <algorithm>
 
 #ifdef _WIN32
 #include <algorithm>
@@ -276,6 +281,48 @@ std::string Server::protocolString() const
   if (m_protocol == NetworkProtocol::Unknown)
     throw InvalidProtocolException();
   return networkProtocolToName(m_protocol).toStdString();
+}
+
+Server::PhysicalEdgeRoute
+Server::validatePhysicalEdgeRoute(const BaseClientProxy *source, uint32_t side, uint32_t fraction) const
+{
+  PhysicalEdgeRoute result;
+  if (!Settings::value(Settings::Core::PhysicalEdgeValidation).toBool() ||
+      !Settings::value(Settings::Security::TlsEnabled).toBool() ||
+      !Settings::value(Settings::Security::CheckPeers).toBool() || source == nullptr)
+    return result;
+  if (source != m_active || isLockedToScreen()) {
+    result.reason = PhysicalEdgeReject::Inactive;
+    return result;
+  }
+  const auto client = m_clients.find(getName(source));
+  if (client == m_clients.end() || client->second != source || side > 3 || fraction > 1000000) {
+    result.reason = PhysicalEdgeReject::Invalid;
+    return result;
+  }
+
+  int32_t sx, sy, sw, sh;
+  source->getShape(sx, sy, sw, sh);
+  auto point = physicalEdgePoint(sx, sy, sw, sh, side, fraction);
+  if (!point) {
+    result.reason = PhysicalEdgeReject::Invalid;
+    return result;
+  }
+  const auto direction = static_cast<Direction>(side + static_cast<uint32_t>(Direction::Left));
+  // The wire fraction uses the entire reported client shape. Reconstruct a
+  // point just outside the relevant edge, then let the existing server layout
+  // map it. This only computes a proposal; m_active remains untouched.
+  int32_t x = point->x;
+  int32_t y = point->y;
+  auto *destination = mapToNeighbor(const_cast<BaseClientProxy *>(source), direction, x, y);
+  if (!destination || destination == source) {
+    result.reason = PhysicalEdgeReject::NoRoute;
+    return result;
+  }
+  result.reason = PhysicalEdgeReject::None;
+  result.x = x;
+  result.y = y;
+  return result;
 }
 
 uint32_t Server::getNumClients() const
@@ -1052,6 +1099,12 @@ void Server::sendOptions(BaseClientProxy *client) const
   // send the options
   client->resetOptions();
   client->setOptions(optionsList);
+  if (Settings::value(Settings::Core::PhysicalEdgeValidation).toBool() &&
+      Settings::value(Settings::Security::TlsEnabled).toBool() &&
+      Settings::value(Settings::Security::CheckPeers).toBool()) {
+    if (auto *physicalClient = dynamic_cast<ClientProxy1_9 *>(client))
+      physicalClient->offerPhysicalEdgeValidation();
+  }
 }
 
 void Server::processOptions()

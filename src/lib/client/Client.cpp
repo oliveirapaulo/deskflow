@@ -19,6 +19,7 @@
 #include "deskflow/PacketStreamFilter.h"
 #include "deskflow/ProtocolTypes.h"
 #include "deskflow/ProtocolUtil.h"
+#include "deskflow/PhysicalEdgeEvents.h"
 #include "deskflow/Screen.h"
 #include "deskflow/StreamChunker.h"
 #include "net/IDataSocket.h"
@@ -50,12 +51,16 @@ Client::Client(
   // register suspend/resume event handlers
   m_events->addHandler(EventTypes::ScreenSuspend, getEventTarget(), [this](const auto &) { handleSuspend(); });
   m_events->addHandler(EventTypes::ScreenResume, getEventTarget(), [this](const auto &) { handleResume(); });
+  m_events->addHandler(EventTypes::PhysicalEdgeActivated, m_screen->getEventTarget(), [this](const auto &event) {
+    handlePhysicalEdgeActivated(event);
+  });
 }
 
 Client::~Client()
 {
   m_events->removeHandler(EventTypes::ScreenSuspend, getEventTarget());
   m_events->removeHandler(EventTypes::ScreenResume, getEventTarget());
+  m_events->removeHandler(EventTypes::PhysicalEdgeActivated, m_screen->getEventTarget());
 
   cleanupTimer();
   cleanupScreen();
@@ -148,6 +153,37 @@ void Client::handshakeComplete()
   m_ready = true;
   m_screen->enable();
   sendEvent(EventTypes::ClientConnected);
+}
+
+void Client::physicalEdgeCapabilityReady()
+{
+  if (!m_ready || !m_server)
+    return;
+  m_physicalEdgeReady = true;
+  m_events->addEvent(Event(EventTypes::PhysicalEdgeEnable, m_screen->getEventTarget()));
+}
+
+void Client::physicalEdgeRouteResult(uint32_t requestId, bool approved)
+{
+  if (!m_physicalEdgePending || requestId != m_physicalEdgeRequestId)
+    return;
+  m_physicalEdgePending = false;
+  auto *info = new deskflow::PhysicalEdgeResultInfo;
+  info->requestId = requestId;
+  info->approved = approved;
+  m_events->addEvent(Event(EventTypes::PhysicalEdgeResult, m_screen->getEventTarget(), info));
+}
+
+void Client::handlePhysicalEdgeActivated(const Event &event)
+{
+  if (!m_physicalEdgeReady || !m_server || m_physicalEdgePending)
+    return;
+  const auto *info = static_cast<const deskflow::PhysicalEdgeActivatedInfo *>(event.getData());
+  if (!info || info->side > 3 || info->fraction > 1000000)
+    return;
+  const auto id = ++m_physicalEdgeRequestId;
+  if (m_server->requestPhysicalEdgeRoute(id, info->side, info->fraction))
+    m_physicalEdgePending = true;
 }
 
 bool Client::isConnected() const
@@ -474,6 +510,12 @@ void Client::cleanupConnection()
 
 void Client::cleanupScreen()
 {
+  if (m_physicalEdgeReady) {
+    m_events->addEvent(Event(EventTypes::PhysicalEdgeDisable, m_screen->getEventTarget(), nullptr,
+                             Event::EventFlags::DeliverImmediately));
+    m_physicalEdgeReady = false;
+    m_physicalEdgePending = false;
+  }
   if (m_server != nullptr) {
     if (m_ready) {
       m_screen->disable();
@@ -605,14 +647,13 @@ void Client::handleHello()
     return;
   }
 
-  LOG_DEBUG(
-      "saying hello back with version %s %d.%d", protocolName.c_str(), kProtocolMajorVersion, kProtocolMinorVersion
-  );
+  const int16_t negotiatedMinor = negotiatedProtocolMinor(serverMinor);
+  LOG_DEBUG("saying hello back with version %s %d.%d", protocolName.c_str(), kProtocolMajorVersion, negotiatedMinor);
 
   // dynamically build write format for hello back since `ProtocolUtil::writef`
   // doesn't support formatting fixed length strings yet.
   std::string helloBackMessage = protocolName + kMsgHelloBackArgs;
-  ProtocolUtil::writef(m_stream, helloBackMessage.c_str(), kProtocolMajorVersion, kProtocolMinorVersion, &m_name);
+  ProtocolUtil::writef(m_stream, helloBackMessage.c_str(), kProtocolMajorVersion, negotiatedMinor, &m_name);
 
   // now connected but waiting to complete handshake
   setupScreen();

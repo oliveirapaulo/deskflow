@@ -149,6 +149,9 @@ elseif(UNIX)
       list(APPEND PLATFORM_SOURCES
         PortalInputCapture.cpp
         PortalInputCapture.h
+        PortalPhysicalEdge.cpp
+        PortalPhysicalEdge.h
+        PhysicalEdgeGeometry.h
         PortalRemoteDesktop.cpp
         PortalRemoteDesktop.h
       )

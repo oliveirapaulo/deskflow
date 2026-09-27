@@ -45,7 +45,13 @@ static const int16_t kProtocolMajorVersion = 1;
  * @note When incrementing the minor version, the Deskflow application version should also increment
  * @since Protocol version 1.0
  */
-static const int16_t kProtocolMinorVersion = 8;
+static const int16_t kProtocolMinorVersion = 9;
+// Replying with a higher minor than an older server supports would make that
+// server reject the connection before feature negotiation can occur.
+constexpr int16_t negotiatedProtocolMinor(int16_t serverMinor)
+{
+  return serverMinor < kProtocolMinorVersion ? serverMinor : kProtocolMinorVersion;
+}
 
 /**
  * @brief Default TCP port for Deskflow connections
@@ -311,6 +317,12 @@ extern const char *const kMsgHelloBackArgs;
  * @since Protocol version 1.0
  */
 extern const char *const kMsgCNoop;
+// 1.9 diagnostic physical-edge route validation; no ownership transfer.
+extern const char *const kMsgCPhysicalEdgeCapability;
+extern const char *const kMsgDPhysicalEdgeCapability;
+extern const char *const kMsgDPhysicalEdgeRequest;
+extern const char *const kMsgCPhysicalEdgeApproved;
+extern const char *const kMsgCPhysicalEdgeRejected;
 
 /**
  * @brief Close connection command

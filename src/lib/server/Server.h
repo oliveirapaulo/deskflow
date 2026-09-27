@@ -42,6 +42,15 @@ class Server
   using ServerConfig = deskflow::server::Config;
 
 public:
+  enum class PhysicalEdgeReject : uint8_t { None = 0, Unavailable = 1, Inactive = 2, Invalid = 3, NoRoute = 4 };
+  struct PhysicalEdgeRoute
+  {
+    PhysicalEdgeReject reason = PhysicalEdgeReject::Unavailable;
+    int32_t x = 0;
+    int32_t y = 0;
+  };
+  // Pure route lookup. Must not alter m_active or emit enter/leave.
+  PhysicalEdgeRoute validatePhysicalEdgeRoute(const BaseClientProxy *source, uint32_t side, uint32_t fraction) const;
   //! Lock cursor to screen data
   class LockCursorToScreenInfo : public EventData
   {

@@ -38,6 +38,20 @@ elseif(UNIX)
   # Add Wayland clipboard tests when Wayland support is available
   if(LIBEI_FOUND AND LIBPORTAL_FOUND)
     create_test(
+      NAME PhysicalEdgeOneShotTests
+      DEPENDS platform
+      LIBS base arch
+      SOURCE PhysicalEdgeOneShotTests.cpp
+      WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/platform"
+    )
+    create_test(
+      NAME PhysicalEdgeGeometryTests
+      DEPENDS platform
+      LIBS base arch
+      SOURCE PhysicalEdgeGeometryTests.cpp
+      WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/platform"
+    )
+    create_test(
       NAME WlClipboardTests
       DEPENDS platform
       LIBS base arch

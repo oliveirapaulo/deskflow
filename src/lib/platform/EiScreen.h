@@ -10,6 +10,7 @@
 #include "deskflow/IScreen.h"
 #include "deskflow/PlatformScreen.h"
 #include "platform/XDGPowerManager.h"
+#include "platform/PhysicalEdgeGeometry.h"
 
 #include <libei.h>
 #include <map>
@@ -27,6 +28,7 @@ class WlClipboardCollection;
 class EiKeyState;
 class PortalRemoteDesktop;
 class PortalInputCapture;
+class PortalPhysicalEdge;
 
 using ClipboardInfo = IScreen::ClipboardInfo;
 
@@ -128,6 +130,7 @@ private:
   WlClipboardCollection *m_clipboard = nullptr;
 
   std::vector<ei_device *> m_eiDevices;
+  std::vector<physical_edge::Rect> m_eiRegions;
 
   ei *m_ei = nullptr;
   ei_seat *m_eiSeat = nullptr;
@@ -138,10 +141,10 @@ private:
   std::uint32_t m_sequenceNumber = 0;
 
   std::uint32_t m_activeSides = 0;
-  std::uint32_t m_x = 0;
-  std::uint32_t m_y = 0;
-  std::uint32_t m_w = 0;
-  std::uint32_t m_h = 0;
+  std::int32_t m_x = 0;
+  std::int32_t m_y = 0;
+  std::int32_t m_w = 0;
+  std::int32_t m_h = 0;
 
   // true if mouse has entered the screen
   bool m_isOnScreen;
@@ -158,6 +161,7 @@ private:
 
   PortalRemoteDesktop *m_portalRemoteDesktop = nullptr;
   PortalInputCapture *m_portalInputCapture = nullptr;
+  PortalPhysicalEdge *m_portalPhysicalEdge = nullptr;
 
   struct HotKeyItem
   {

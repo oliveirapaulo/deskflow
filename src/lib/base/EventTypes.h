@@ -48,6 +48,12 @@ enum class EventTypes : uint32_t
   /// Disconnect and shutdown cleanup do not emit this event.
   ClientScreenLeft,
 
+  // Experimental physical-edge route validation; never commits a switch.
+  PhysicalEdgeEnable,
+  PhysicalEdgeDisable,
+  PhysicalEdgeActivated,
+  PhysicalEdgeResult,
+
   /// A stream sends this event when \c read() will return with data.
   StreamInputReady,
 

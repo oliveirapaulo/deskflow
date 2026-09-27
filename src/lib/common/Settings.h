@@ -58,6 +58,8 @@ public:
     inline static const auto UseHooks = QStringLiteral("core/useHooks");
     inline static const auto Language = QStringLiteral("core/language");
     inline static const auto UseWlClipboard = QStringLiteral("core/wlClipboard");
+    // Experimental, diagnostic-only route validation. Never switches screens.
+    inline static const auto PhysicalEdgeValidation = QStringLiteral("core/physicalEdgeValidation");
 
     // TODO: REMOVE In 2.0
     inline static const auto ScreenName = QStringLiteral("core/screenName"); // Replaced By ComputerName
@@ -219,6 +221,7 @@ private:
     , Settings::Core::Display
     , Settings::Core::UseHooks
     , Settings::Core::UseWlClipboard
+    , Settings::Core::PhysicalEdgeValidation
     , Settings::Core::Language
     , Settings::Daemon::Command
     , Settings::Daemon::Elevate
@@ -260,6 +263,7 @@ private:
     , Settings::Gui::ShowVersionInTitle
     , Settings::Core::PreventSleep
     , Settings::Core::UseWlClipboard
+    , Settings::Core::PhysicalEdgeValidation
     , Settings::Server::ExternalConfig
     , Settings::Client::InvertYScroll
     , Settings::Client::InvertXScroll

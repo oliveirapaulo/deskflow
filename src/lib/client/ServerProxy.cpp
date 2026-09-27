@@ -16,6 +16,7 @@
 #include "deskflow/DeskflowException.h"
 #include "deskflow/OptionTypes.h"
 #include "deskflow/ProtocolTypes.h"
+#include "common/Settings.h"
 #include "deskflow/ProtocolUtil.h"
 #include "deskflow/StreamChunker.h"
 #include "io/IStream.h"
@@ -297,6 +298,30 @@ ServerProxy::ConnectionResult ServerProxy::parseMessage(const uint8_t *code)
     setOptions();
   }
 
+  else if (memcmp(code, kMsgCPhysicalEdgeCapability, 4) == 0) {
+    if (Settings::value(Settings::Core::PhysicalEdgeValidation).toBool() &&
+        Settings::value(Settings::Security::TlsEnabled).toBool() &&
+        Settings::value(Settings::Security::CheckPeers).toBool()) {
+      ProtocolUtil::writef(m_stream, kMsgDPhysicalEdgeCapability);
+      m_physicalEdgeEnabled = true;
+      m_client->physicalEdgeCapabilityReady();
+    }
+  }
+
+  else if (memcmp(code, kMsgCPhysicalEdgeApproved, 4) == 0) {
+    uint32_t id = 0;
+    int32_t x = 0, y = 0;
+    ProtocolUtil::readf(m_stream, kMsgCPhysicalEdgeApproved + 4, &id, &x, &y);
+    m_client->physicalEdgeRouteResult(id, true);
+  }
+
+  else if (memcmp(code, kMsgCPhysicalEdgeRejected, 4) == 0) {
+    uint32_t id = 0;
+    uint8_t reason = 0;
+    ProtocolUtil::readf(m_stream, kMsgCPhysicalEdgeRejected + 4, &id, &reason);
+    m_client->physicalEdgeRouteResult(id, false);
+  }
+
   else if (memcmp(code, kMsgDSecureInputNotification, 4) == 0) {
     secureInputNotification();
   }
@@ -355,6 +380,14 @@ void ServerProxy::onClipboardChanged(ClipboardID id, const IClipboard *clipboard
   LOG_DEBUG("sending clipboard %d seqnum=%d", id, m_seqNum);
 
   StreamChunker::sendClipboard(data, data.size(), id, m_seqNum, m_events, this);
+}
+
+bool ServerProxy::requestPhysicalEdgeRoute(uint32_t requestId, uint32_t side, uint32_t fraction)
+{
+  if (!m_physicalEdgeEnabled || side > 3 || fraction > 1000000)
+    return false;
+  ProtocolUtil::writef(m_stream, kMsgDPhysicalEdgeRequest, requestId, side, fraction);
+  return true;
 }
 
 void ServerProxy::flushCompressedMouse()

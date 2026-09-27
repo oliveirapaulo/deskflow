@@ -14,6 +14,12 @@ const char *const kMsgHelloArgs = "%2i%2i";
 const char *const kMsgHelloBack = "%7s%2i%2i%s";
 const char *const kMsgHelloBackArgs = "%2i%2i%s";
 const char *const kMsgCNoop = "CNOP";
+const char *const kMsgCPhysicalEdgeCapability = "CPEC";
+const char *const kMsgDPhysicalEdgeCapability = "DPEC";
+// Fraction is fixed-point in [0, 1'000'000], never a raw portal coordinate.
+const char *const kMsgDPhysicalEdgeRequest = "DERQ%4i%1i%4i";
+const char *const kMsgCPhysicalEdgeApproved = "CERA%4i%4i%4i";
+const char *const kMsgCPhysicalEdgeRejected = "CERE%4i%1i";
 const char *const kMsgCClose = "CBYE";
 const char *const kMsgCEnter = "CINN%2i%2i%4i%2i";
 const char *const kMsgCLeave = "COUT";

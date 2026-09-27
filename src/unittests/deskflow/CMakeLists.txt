@@ -14,6 +14,14 @@ create_test(
 )
 
 create_test(
+  NAME PhysicalEdgeProtocolTests
+  DEPENDS app
+  LIBS arch base io ${extra_libs}
+  SOURCE PhysicalEdgeProtocolTests.cpp
+  WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/deskflow"
+)
+
+create_test(
   NAME ClipboardChunksTests
   DEPENDS app
   LIBS arch base io ${extra_libs}
@@ -54,4 +62,3 @@ if(BUILD_X11_SUPPORT)
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/deskflow"
   )
 endif()
-

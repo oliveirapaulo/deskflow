@@ -95,6 +95,8 @@ public:
   Notifies the client that the connection handshake has completed.
   */
   virtual void handshakeComplete();
+  void physicalEdgeCapabilityReady();
+  void physicalEdgeRouteResult(uint32_t requestId, bool approved);
 
   //@}
   //! @name accessors
@@ -179,6 +181,7 @@ private:
   void handleResume();
   void sendClipboardThread(void *);
   void bindNetworkInterface(IDataSocket *socket) const;
+  void handlePhysicalEdgeActivated(const Event &event);
 
 private:
   std::string m_name;
@@ -201,4 +204,7 @@ private:
   bool m_enableClipboard = true;
   size_t m_maximumClipboardSize = INT_MAX;
   size_t m_resolvedAddressesCount = 0;
+  bool m_physicalEdgeReady = false;
+  bool m_physicalEdgePending = false;
+  uint32_t m_physicalEdgeRequestId = 0;
 };

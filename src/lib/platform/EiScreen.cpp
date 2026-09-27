@@ -17,6 +17,8 @@
 #include "platform/EiEventQueueBuffer.h"
 #include "platform/EiKeyState.h"
 #include "platform/PortalInputCapture.h"
+#include "platform/PortalPhysicalEdge.h"
+#include "deskflow/PhysicalEdgeEvents.h"
 #include "platform/PortalRemoteDesktop.h"
 #include "platform/WlClipboardCollection.h"
 
@@ -59,6 +61,25 @@ EiScreen::EiScreen(bool isPrimary, IEventQueue *events, bool usePortal)
     if (isPrimary) {
       m_portalInputCapture = new PortalInputCapture(this, m_events);
     } else {
+      m_events->addHandler(EventTypes::PhysicalEdgeEnable, getEventTarget(), [this](const auto &) {
+        const physical_edge::Rect shape{static_cast<int32_t>(m_x), static_cast<int32_t>(m_y),
+                                        static_cast<int32_t>(m_w), static_cast<int32_t>(m_h)};
+        if (!m_portalPhysicalEdge)
+          m_portalPhysicalEdge = new PortalPhysicalEdge(getEventTarget(), m_events, shape, m_eiRegions);
+        else
+          m_portalPhysicalEdge->serverReady();
+      });
+      m_events->addHandler(EventTypes::PhysicalEdgeDisable, getEventTarget(), [this](const auto &) {
+        if (m_portalPhysicalEdge)
+          m_portalPhysicalEdge->serverDisconnected();
+      });
+      m_events->addHandler(EventTypes::PhysicalEdgeResult, getEventTarget(), [this](const auto &event) {
+        if (m_portalPhysicalEdge) {
+          const auto *result = static_cast<const PhysicalEdgeResultInfo *>(event.getData());
+          if (result)
+            m_portalPhysicalEdge->complete(result->approved);
+        }
+      });
       m_events->addHandler(EventTypes::EISessionClosed, getEventTarget(), [this](const auto &) {
         handlePortalSessionClosed();
       });
@@ -81,9 +102,13 @@ EiScreen::EiScreen(bool isPrimary, IEventQueue *events, bool usePortal)
 
 EiScreen::~EiScreen()
 {
+  m_events->removeHandler(EventTypes::PhysicalEdgeEnable, getEventTarget());
+  m_events->removeHandler(EventTypes::PhysicalEdgeDisable, getEventTarget());
+  m_events->removeHandler(EventTypes::PhysicalEdgeResult, getEventTarget());
   m_events->adoptBuffer(nullptr);
   m_events->removeHandler(EventTypes::System, m_events->getSystemTarget());
 
+  delete m_portalPhysicalEdge;
   cleanupEi();
 
   delete m_keyState;
@@ -473,19 +498,39 @@ bool EiScreen::isPrimary() const
 
 void EiScreen::updateShape()
 {
-  m_w = 1;
-  m_h = 1;
-  m_x = std::numeric_limits<uint32_t>::max();
-  m_y = std::numeric_limits<uint32_t>::max();
+  m_eiRegions.clear();
+  int64_t left = std::numeric_limits<int64_t>::max();
+  int64_t top = std::numeric_limits<int64_t>::max();
+  int64_t right = std::numeric_limits<int64_t>::min();
+  int64_t bottom = std::numeric_limits<int64_t>::min();
   for (auto it = m_eiDevices.begin(); it != m_eiDevices.end(); it++) {
     auto idx = 0;
     struct ei_region *r;
     while ((r = ei_device_get_region(*it, idx++)) != nullptr) {
-      m_x = std::min(ei_region_get_x(r), m_x);
-      m_y = std::min(ei_region_get_y(r), m_y);
-      m_w = std::max(ei_region_get_x(r) + ei_region_get_width(r), m_w);
-      m_h = std::max(ei_region_get_y(r) + ei_region_get_height(r), m_h);
+      if (ei_region_get_x(r) <= INT32_MAX && ei_region_get_y(r) <= INT32_MAX &&
+          ei_region_get_width(r) <= INT32_MAX && ei_region_get_height(r) <= INT32_MAX)
+        m_eiRegions.push_back({static_cast<int32_t>(ei_region_get_x(r)),
+                               static_cast<int32_t>(ei_region_get_y(r)),
+                               static_cast<int32_t>(ei_region_get_width(r)),
+                               static_cast<int32_t>(ei_region_get_height(r))});
+      left = std::min(left, static_cast<int64_t>(ei_region_get_x(r)));
+      top = std::min(top, static_cast<int64_t>(ei_region_get_y(r)));
+      right = std::max(right, static_cast<int64_t>(ei_region_get_x(r)) + ei_region_get_width(r));
+      bottom = std::max(bottom, static_cast<int64_t>(ei_region_get_y(r)) + ei_region_get_height(r));
     }
+  }
+  if (left == std::numeric_limits<int64_t>::max() || right <= left || bottom <= top ||
+      left < std::numeric_limits<int32_t>::min() || top < std::numeric_limits<int32_t>::min() ||
+      right > std::numeric_limits<int32_t>::max() || bottom > std::numeric_limits<int32_t>::max() ||
+      right - left > std::numeric_limits<int32_t>::max() ||
+      bottom - top > std::numeric_limits<int32_t>::max()) {
+    m_x = m_y = 0;
+    m_w = m_h = 1;
+  } else {
+    m_x = static_cast<int32_t>(left);
+    m_y = static_cast<int32_t>(top);
+    m_w = static_cast<int32_t>(right - left);
+    m_h = static_cast<int32_t>(bottom - top);
   }
 
   LOG_DEBUG("logical output size: %dx%d@%d.%d", m_w, m_h, m_x, m_y);
@@ -493,6 +538,8 @@ void EiScreen::updateShape()
   m_cursorY = m_y + m_h / 2;
 
   sendEvent(EventTypes::ScreenShapeChanged, nullptr);
+  if (m_portalPhysicalEdge)
+    m_portalPhysicalEdge->shapeChanged({m_x, m_y, m_w, m_h}, m_eiRegions);
 }
 
 void EiScreen::addDevice(struct ei_device *device)

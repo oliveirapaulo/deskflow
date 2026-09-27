@@ -21,3 +21,10 @@ create_test(
   WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/server"
 )
 
+create_test(
+  NAME PhysicalEdgeRouteTests
+  DEPENDS server
+  LIBS base arch ${extra_libs}
+  SOURCE PhysicalEdgeRouteTests.cpp
+  WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/server"
+)

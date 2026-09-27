@@ -47,6 +47,7 @@ public:
   void onInfoChanged();
   bool onGrabClipboard(ClipboardID);
   void onClipboardChanged(ClipboardID, const IClipboard *);
+  bool requestPhysicalEdgeRoute(uint32_t requestId, uint32_t side, uint32_t fraction);
 
   //@}
 
@@ -116,6 +117,7 @@ private:
   int32_t m_dyMouse = 0;
 
   bool m_ignoreMouse = false;
+  bool m_physicalEdgeEnabled = false;
 
   KeyModifierID m_modifierTranslationTable[kKeyModifierIDLast];
 
